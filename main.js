@@ -59,7 +59,7 @@ let myCharacter = function(landerSource, flamesSource, location) {
         accel: {x:0, y:0},
         vel: {x:0, y:0},
         angle: 0,
-        isThrusting: false
+        fuel: 100
     };
 }('assets/character.png', 'assets/flames.png',{x:50, y:50});
 
@@ -89,11 +89,11 @@ function gameLoop() {
 }
 
 function getMovement(elapsedTime){
-    elapsed = elapsedTime/10
-    let thrust = 1.68
-    var moonGrav = 1.625
-    var maxVel = 4
-    var maxAccel = 6
+    elapsed = elapsedTime/30
+    let thrust = .05
+    var moonGrav = .02
+    var maxVel = 7
+    var maxAccel = 2
 
     myCharacter.accel.y += (moonGrav*elapsed)
 
@@ -103,13 +103,15 @@ function getMovement(elapsedTime){
         myCharacter.accel.y -= elapsed*thrust*Math.cos(myCharacter.angle)
     }
     if(controls.rotateLeft.isPressed){
-        myCharacter.angle -= elapsed * 1 * Math.PI/180
+        myCharacter.angle -= elapsed * 1.25 * Math.PI/180
     }
     if(controls.rotateRight.isPressed){
-        myCharacter.angle += elapsed * 1 * Math.PI/180
+        myCharacter.angle += elapsed * 1.25 * Math.PI/180
     }
+    myCharacter.angle = myCharacter.angle%(Math.PI*2)
     
     //get y values
+    myCharacter.accel.y = myCharacter.accel.y*.99
     if(myCharacter.accel.y >= maxAccel){
         myCharacter.accel.y = maxAccel
     }
@@ -117,7 +119,6 @@ function getMovement(elapsedTime){
         myCharacter.accel.y = -maxAccel
     }
 
-    console.log(myCharacter.accel.x,myCharacter.accel.y)
 
     myCharacter.vel.y = (elapsed*myCharacter.accel.y)+myCharacter.vel.y
 
@@ -128,13 +129,14 @@ function getMovement(elapsedTime){
         myCharacter.vel.y = -maxVel
     }
 
-    myCharacter.location.y += myCharacter.vel.y
+    myCharacter.location.y += (myCharacter.vel.y*elapsed)*.5
     
     if(myCharacter.location.y > canvas.height || myCharacter.location.y < 0){
         myCharacter.location.y = 0
     }
 
     //get x values
+    myCharacter.accel.x = myCharacter.accel.x*.99
     if(myCharacter.accel.x >= maxAccel){
         myCharacter.accel.x = maxAccel
     }
@@ -151,17 +153,27 @@ function getMovement(elapsedTime){
         myCharacter.vel.x = -maxVel
     }
 
-    myCharacter.location.x += myCharacter.vel.x
+    myCharacter.location.x += myCharacter.vel.x*elapsed*.5
     
     if(myCharacter.location.x > canvas.width || myCharacter.location.x < 0){
         myCharacter.location.x = 0
     }    
+
+    console.log(myCharacter.accel.y)
+}
+
+function getShipStatus(elapsedTime){
+    elapsed = elapsedTime/30
+    if(controls.thrust.isPressed){
+        myCharacter.fuel -= (elapsed*.6)
+    }
 }
 
 function update(current){
     var elapsed = current-lastUpdate
     lastUpdate = current
     getMovement(elapsed)
+    getShipStatus(elapsed)
 }
 
 function processInput() {
@@ -182,12 +194,13 @@ function render(){
     }
     renderTerrain()
     renderCharacter(myCharacter)
+    renderStatus()
     needsRender = false
 }
 
 function renderCharacter(character) {
-    let landerSize = .15*character.lander.width
-    let flamesSize = .04*character.flames.width
+    let landerSize = .1*character.lander.width
+    let flamesSize = .03*character.flames.width
     if (character.lander.isReady && character.flames.isReady) {
         context.save()
         context.translate(character.location.x, character.location.y)
@@ -199,11 +212,44 @@ function renderCharacter(character) {
         if(controls.thrust.isPressed){
             //rotate for flames
             context.rotate((Math.PI/2))
-            context.translate(75,-3)
+            context.translate(53,-3)
             context.drawImage(character.flames,flamesSize/-2,flamesSize/-2,flamesSize,flamesSize);
         }
         context.restore()
     }
+}
+
+function renderStatus(){
+    context.font = '30px serif';
+
+    //display fuel
+    if(myCharacter.fuel <= 0){
+        myCharacter.fuel = 0
+        context.fillStyle = "white"
+    } else {
+        context.fillStyle = "green"
+    }
+    context.fillText("Fuel: " + myCharacter.fuel.toFixed(2), canvas.width-200, 50)
+
+    //display speed
+    if(myCharacter.vel.y > 3){
+        context.fillStyle = "white"
+    } else {
+        context.fillStyle = "green"
+    }
+    context.fillText("Speed: " + myCharacter.vel.y.toFixed(2), canvas.width-200, 80)
+
+    //display angle
+    var displayAng = myCharacter.angle*180/Math.PI
+    if(displayAng < 0){
+        displayAng = 360+displayAng
+    }
+    if((displayAng < 10 && displayAng >= 0) || (displayAng > 350 && displayAng <= 360)){
+        context.fillStyle = "green"
+    } else {
+        context.fillStyle = "white"
+    }
+    context.fillText("Angle: " + displayAng.toFixed(2), canvas.width-200, 110)
 }
 
 function moveCharacter(key, type) {
