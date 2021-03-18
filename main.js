@@ -4,7 +4,7 @@ let inputBuffer = {};
 let allPoints = [];
 let points = [];
 let safeZones = [];
-let needsRender = true;
+var lastUpdate = 0;
 
 let imgBackground = new Image();
 imgBackground.isReady = false;
@@ -13,6 +13,29 @@ imgBackground.onload = function() {
 };
 imgBackground.src = 'assets/background.jpg';
 
+let myCharacter = function(landerSource, flamesSource, location) {
+    let lander = new Image();
+    let flames = new Image();
+    lander.isReady = false;
+    flames.isReady = false
+    lander.onload = function() {
+        this.isReady = true;
+    };
+    flames.onload = function() {
+        this.isReady = true;
+    };
+    lander.src = landerSource;
+    flames.src = flamesSource;
+    return {
+        location: location,
+        lander: lander,
+        flames: flames,
+        accel: {x:0, y:0},
+        vel: {x:0, y:0},
+        angle: 0,
+        isThrusting: false
+    };
+}('assets/character.png', 'assets/flames.png',{x:50, y:50});
 
 function initialize() {
     canvas = document.getElementById('canvas-main');
@@ -36,8 +59,67 @@ function gameLoop() {
     requestAnimationFrame(gameLoop);
 }
 
-function update(current){
+function getMovement(elapsedTime){
+    elapsed = elapsedTime/10
+    var moonGrav = 1.625
+    var maxVel = 4
+    var maxAccel = 2
 
+    // myCharacter.accel.y += moonGrav
+
+    //get y values
+    if(myCharacter.accel.accel >= maxAccel){
+        myCharacter.accel.accel = maxAccel
+    }
+    if(myCharacter.accel.accel <= -maxAccel){
+        myCharacter.accel.accel = -maxAccel
+    }
+
+    myCharacter.vel.y = (elapsed*myCharacter.accel.y)+myCharacter.vel.y
+
+    if(myCharacter.vel.y >= maxVel){
+        myCharacter.vel.y = maxVel
+    }
+    if(myCharacter.vel.y <= -maxVel){
+        myCharacter.vel.y = -maxVel
+    }
+
+    myCharacter.location.y += myCharacter.vel.y
+    
+    if(myCharacter.location.y > canvas.height || myCharacter.location.y < 0){
+        myCharacter.location.y = 0
+    }
+
+    //get x values
+    if(myCharacter.accel.x >= maxAccel){
+        myCharacter.accel.x = maxAccel
+    }
+    if(myCharacter.accel.x <= -maxAccel){
+        myCharacter.accel.x = -maxAccel
+    }
+
+    myCharacter.vel.x = (elapsed*myCharacter.accel.x)+myCharacter.vel.x
+
+    if(myCharacter.vel.x >= maxVel){
+        myCharacter.vel.x = maxVel
+    }
+    if(myCharacter.vel.x <= -maxVel){
+        myCharacter.vel.x = -maxVel
+    }
+
+    myCharacter.location.x += myCharacter.vel.x
+    
+    if(myCharacter.location.x > canvas.width || myCharacter.location.x < 0){
+        myCharacter.location.x = 0
+    }
+    console.log(myCharacter.vel.x,myCharacter.vel.x)
+    
+}
+
+function update(current){
+    var elapsed = current-lastUpdate
+    lastUpdate = current
+    getMovement(elapsed)
 }
 
 function processInput() {
@@ -48,56 +130,51 @@ function processInput() {
 }
 
 function render(){
-    if(needsRender){
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        if (imgBackground.isReady) {
-            context.drawImage(imgBackground,0,0, canvas.width, canvas.height);
-        }
-        renderTerrain()
-        renderCharacter(myCharacter)
-        needsRender = false
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    if (imgBackground.isReady) {
+        context.drawImage(imgBackground,0,0, canvas.width, canvas.height);
     }
+    renderTerrain()
+    renderCharacter(myCharacter)
+    needsRender = false
 }
 
-let myCharacter = function(imageSource, location) {
-    let image = new Image();
-    image.isReady = false;
-    image.onload = function() {
-        this.isReady = true;
-    };
-    image.src = imageSource;
-    return {
-        location: location,
-        image: image,
-        angle: 1
-    };
-}('assets/character.png', {x:50, y:50});
+
 
 function renderCharacter(character) {
-    let size = .15*character.image.width
-    if (character.image.isReady) {
+    let landerSize = .15*character.lander.width
+    let flamesSize = .04*character.flames.width
+    if (character.lander.isReady && character.flames.isReady) {
         context.save()
         context.translate(character.location.x, character.location.y)
+
+        //rotate for lander
         context.rotate(character.angle)
-        context.drawImage(character.image,size/-2,size/-2,size,size);
+        context.drawImage(character.lander,landerSize/-2,landerSize/-2,landerSize,landerSize);
+
+        if(character.isThrusting){
+            //rotate for flames
+            context.rotate((Math.PI/2))
+            context.translate(75,-3)
+            context.drawImage(character.flames,flamesSize/-2,flamesSize/-2,flamesSize,flamesSize);
+            character.isThrusting = false
+        }
         context.restore()
     }
 }
 
 function moveCharacter(key) {
     if (key == 'ArrowUp') {
-        console.log("Thrust")
-        needsRender = true;
+        let thrust = .0005
+        myCharacter.accel.x += thrust*Math.sin(myCharacter.angle)
+        myCharacter.accel.y -= thrust*Math.cos(myCharacter.angle)
+        myCharacter.isThrusting = true
     }
     if (key == 'ArrowRight') {
-        console.log("Bank Right")
-        myCharacter.angle += 2 * Math.PI/180
-        needsRender = true;
+        myCharacter.angle += 3 * Math.PI/180
     }
     if (key == 'ArrowLeft') {
-        console.log("Bank Left")
-        myCharacter.angle -= 2 * Math.PI/180
-        needsRender = true;
+        myCharacter.angle -= 3 * Math.PI/180
     }
 }
 
