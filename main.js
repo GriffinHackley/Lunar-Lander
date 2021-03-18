@@ -12,6 +12,15 @@ class Key{
         this.defaultKey = defaultKey
         this.currentKey = defaultKey
         this.isPressed = false;
+        this.timePressed = 0;
+        this.timeDown = 0;
+    }
+
+    equals(key){
+        if(key == this.currentKey){
+            return true;
+        }
+        return false;
     }
 }
 
@@ -81,19 +90,34 @@ function gameLoop() {
 
 function getMovement(elapsedTime){
     elapsed = elapsedTime/10
+    let thrust = 1.68
     var moonGrav = 1.625
     var maxVel = 4
-    var maxAccel = 2
+    var maxAccel = 6
 
-    // myCharacter.accel.y += moonGrav
+    myCharacter.accel.y += (moonGrav*elapsed)
 
+    //get accel from thrusting
+    if(controls.thrust.isPressed){
+        myCharacter.accel.x += elapsed*thrust*Math.sin(myCharacter.angle)
+        myCharacter.accel.y -= elapsed*thrust*Math.cos(myCharacter.angle)
+    }
+    if(controls.rotateLeft.isPressed){
+        myCharacter.angle -= elapsed * 1 * Math.PI/180
+    }
+    if(controls.rotateRight.isPressed){
+        myCharacter.angle += elapsed * 1 * Math.PI/180
+    }
+    
     //get y values
-    if(myCharacter.accel.accel >= maxAccel){
-        myCharacter.accel.accel = maxAccel
+    if(myCharacter.accel.y >= maxAccel){
+        myCharacter.accel.y = maxAccel
     }
-    if(myCharacter.accel.accel <= -maxAccel){
-        myCharacter.accel.accel = -maxAccel
+    if(myCharacter.accel.y <= -maxAccel){
+        myCharacter.accel.y = -maxAccel
     }
+
+    console.log(myCharacter.accel.x,myCharacter.accel.y)
 
     myCharacter.vel.y = (elapsed*myCharacter.accel.y)+myCharacter.vel.y
 
@@ -172,12 +196,11 @@ function renderCharacter(character) {
         context.rotate(character.angle)
         context.drawImage(character.lander,landerSize/-2,landerSize/-2,landerSize,landerSize);
 
-        if(character.isThrusting){
+        if(controls.thrust.isPressed){
             //rotate for flames
             context.rotate((Math.PI/2))
             context.translate(75,-3)
             context.drawImage(character.flames,flamesSize/-2,flamesSize/-2,flamesSize,flamesSize);
-            character.isThrusting = false
         }
         context.restore()
     }
@@ -185,29 +208,31 @@ function renderCharacter(character) {
 
 function moveCharacter(key, type) {
     if(type == "up"){
-        if (key == controls.thrust.currentKey) {
+        if (controls.thrust.equals(key)) {
             controls.thrust.isPressed = false
+            controls.thrust.timePressed = performance.now()-controls.thrust.timeDown
         }
-        if (key == controls.rotateRight.currentKey) {
+        if (controls.rotateRight.equals(key)) {
             controls.rotateRight.isPressed = false
+            controls.rotateRight.timePressed = performance.now()-controls.rotateRight.timeDown
         }
-        if (key == controls.rotateLeft.currentKey) {
+        if (controls.rotateLeft.equals(key)) {
             controls.rotateLeft.isPressed = false
+            controls.rotateLeft.timePressed = performance.now()-controls.rotateLeft.timeDown
         }
     } else {
-        if (key == controls.thrust.currentKey) {
+        if (controls.thrust.isPressed || controls.thrust.equals(key)) {
             controls.thrust.isPressed = true
-            let thrust = .0005
-            myCharacter.accel.x += thrust*Math.sin(myCharacter.angle)
-            myCharacter.accel.y -= thrust*Math.cos(myCharacter.angle)
-            myCharacter.isThrusting = true
+            controls.thrust.timeDown = performance.now()
         }
-        if (key == controls.rotateRight.currentKey) {
+        if (controls.rotateRight.isPressed ||controls.rotateRight.equals(key)) {
             controls.rotateRight.isPressed = true
+            controls.rotateRight.timeDown = performance.now()
             myCharacter.angle += 3 * Math.PI/180
         }
-        if (key == controls.rotateLeft.currentKey) {
+        if (controls.rotateLeft.isPressed ||controls.rotateLeft.equals(key)) {
             controls.rotateLeft.isPressed = true
+            controls.rotateLeft.timeDown = performance.now()
             myCharacter.angle -= 3 * Math.PI/180
         }
     }
