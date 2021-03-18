@@ -98,7 +98,7 @@ function getMovement(elapsedTime){
     myCharacter.accel.y += (moonGrav*elapsed)
 
     //get accel from thrusting
-    if(controls.thrust.isPressed){
+    if(controls.thrust.isPressed && myCharacter.fuel>0){
         myCharacter.accel.x += elapsed*thrust*Math.sin(myCharacter.angle)
         myCharacter.accel.y -= elapsed*thrust*Math.cos(myCharacter.angle)
     }
@@ -209,7 +209,7 @@ function renderCharacter(character) {
         context.rotate(character.angle)
         context.drawImage(character.lander,landerSize/-2,landerSize/-2,landerSize,landerSize);
 
-        if(controls.thrust.isPressed){
+        if(controls.thrust.isPressed && myCharacter.fuel > 0){
             //rotate for flames
             context.rotate((Math.PI/2))
             context.translate(53,-3)
