@@ -1,10 +1,27 @@
 let canvas = null;
 let context = null;
-let inputBuffer = {};
+let upBuffer = {};
+let downBuffer = {};
 let allPoints = [];
 let points = [];
 let safeZones = [];
 var lastUpdate = 0;
+
+class Key{
+    constructor(defaultKey){
+        this.defaultKey = defaultKey
+        this.currentKey = defaultKey
+        this.isPressed = false;
+    }
+}
+
+let controls = function(){
+    return{
+        thrust:new Key("ArrowUp"),
+        rotateLeft:new Key("ArrowLeft"),
+        rotateRight: new Key("ArrowRight")
+    }
+}();
 
 let imgBackground = new Image();
 imgBackground.isReady = false;
@@ -44,8 +61,11 @@ function initialize() {
 
     generateTerrain();
 
+    window.addEventListener('keyup', function(event) {
+        upBuffer[event.key] = event.key;
+    });
     window.addEventListener('keydown', function(event) {
-        inputBuffer[event.key] = event.key;
+        downBuffer[event.key] = event.key;
     });
 
     requestAnimationFrame(gameLoop);
@@ -111,9 +131,7 @@ function getMovement(elapsedTime){
     
     if(myCharacter.location.x > canvas.width || myCharacter.location.x < 0){
         myCharacter.location.x = 0
-    }
-    console.log(myCharacter.vel.x,myCharacter.vel.x)
-    
+    }    
 }
 
 function update(current){
@@ -123,10 +141,14 @@ function update(current){
 }
 
 function processInput() {
-    for (input in inputBuffer) {
-        moveCharacter(inputBuffer[input]);
+    for(input in downBuffer) {
+        moveCharacter(downBuffer[input],"down");
     }
-    inputBuffer = {};
+    for (input in upBuffer) {
+        moveCharacter(upBuffer[input],"up");
+    }
+    upBuffer = {};
+    downBuffer = {};
 }
 
 function render(){
@@ -138,8 +160,6 @@ function render(){
     renderCharacter(myCharacter)
     needsRender = false
 }
-
-
 
 function renderCharacter(character) {
     let landerSize = .15*character.lander.width
@@ -163,18 +183,33 @@ function renderCharacter(character) {
     }
 }
 
-function moveCharacter(key) {
-    if (key == 'ArrowUp') {
-        let thrust = .0005
-        myCharacter.accel.x += thrust*Math.sin(myCharacter.angle)
-        myCharacter.accel.y -= thrust*Math.cos(myCharacter.angle)
-        myCharacter.isThrusting = true
-    }
-    if (key == 'ArrowRight') {
-        myCharacter.angle += 3 * Math.PI/180
-    }
-    if (key == 'ArrowLeft') {
-        myCharacter.angle -= 3 * Math.PI/180
+function moveCharacter(key, type) {
+    if(type == "up"){
+        if (key == controls.thrust.currentKey) {
+            controls.thrust.isPressed = false
+        }
+        if (key == controls.rotateRight.currentKey) {
+            controls.rotateRight.isPressed = false
+        }
+        if (key == controls.rotateLeft.currentKey) {
+            controls.rotateLeft.isPressed = false
+        }
+    } else {
+        if (key == controls.thrust.currentKey) {
+            controls.thrust.isPressed = true
+            let thrust = .0005
+            myCharacter.accel.x += thrust*Math.sin(myCharacter.angle)
+            myCharacter.accel.y -= thrust*Math.cos(myCharacter.angle)
+            myCharacter.isThrusting = true
+        }
+        if (key == controls.rotateRight.currentKey) {
+            controls.rotateRight.isPressed = true
+            myCharacter.angle += 3 * Math.PI/180
+        }
+        if (key == controls.rotateLeft.currentKey) {
+            controls.rotateLeft.isPressed = true
+            myCharacter.angle -= 3 * Math.PI/180
+        }
     }
 }
 
