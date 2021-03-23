@@ -6,6 +6,13 @@ let allPoints = [];
 let points = [];
 let safeZones = [];
 var lastUpdate = 0;
+var maxVel = 7;
+var maxAccel = 1;
+var canRotate = true;
+var hasWon = false;
+var wonRound1 = false;
+var wonRound2 = false;
+var round2Started = false;
 
 class Key{
     constructor(defaultKey){
@@ -59,7 +66,7 @@ let myCharacter = function(landerSource, flamesSource, location) {
         accel: {x:0, y:0},
         vel: {x:0, y:0},
         angle: 0,
-        fuel: 100
+        fuel: 200
     };
 }('assets/character.png', 'assets/flames.png',{x:50, y:50});
 
@@ -68,7 +75,7 @@ function initialize() {
     context = canvas.getContext('2d');
     scaleCanvas();
 
-    generateTerrain();
+    generateTerrain(2);
 
     window.addEventListener('keyup', function(event) {
         upBuffer[event.key] = event.key;
@@ -90,10 +97,8 @@ function gameLoop() {
 
 function getMovement(elapsedTime){
     elapsed = elapsedTime/30
-    let thrust = .05
-    var moonGrav = .015
-    var maxVel = 7
-    var maxAccel = 2
+    let thrust = .03
+    var moonGrav = .01
 
     myCharacter.accel.y += (moonGrav*elapsed)
 
@@ -102,13 +107,16 @@ function getMovement(elapsedTime){
         myCharacter.accel.x += elapsed*thrust*Math.sin(myCharacter.angle)
         myCharacter.accel.y -= elapsed*thrust*Math.cos(myCharacter.angle)
     }
-    if(controls.rotateLeft.isPressed){
-        myCharacter.angle -= elapsed * 1.25 * Math.PI/180
+
+    if(canRotate){
+        if(controls.rotateLeft.isPressed){
+            myCharacter.angle -= elapsed * 2.5 * Math.PI/180
+        }
+        if(controls.rotateRight.isPressed){
+            myCharacter.angle += elapsed * 2.5 * Math.PI/180
+        }
+        myCharacter.angle = myCharacter.angle%(Math.PI*2)
     }
-    if(controls.rotateRight.isPressed){
-        myCharacter.angle += elapsed * 1.25 * Math.PI/180
-    }
-    myCharacter.angle = myCharacter.angle%(Math.PI*2)
     
     //get y values
     myCharacter.accel.y = myCharacter.accel.y*.99
@@ -177,7 +185,46 @@ function update(current){
         console.log("End Game")
     } else if(status == "safe"){
         console.log("You won")
+        displayWin()
+        transition()
     }
+}
+
+function transition(){
+    //ship cant move
+    maxAccel = 0;
+    maxVel = 0;
+    canRotate = false
+    if(!wonRound1){
+        setTimeout(function(){
+            generateTerrain(1)
+            myCharacter.angle = 0;
+            maxAccel = 1;
+            maxVel = 7;
+            canRotate = true;
+            myCharacter.location = {x:50,y:50}
+            round2Started = true;
+        },3000);
+        wonRound1 = true;
+    } else if(!wonRound2 && round2Started){
+        setTimeout(function(){
+            console.log("won 2nd round")
+        },3000);
+        wonRound2 = true;
+    }
+}
+
+function displayWin(){
+    if(wonRound1 && !round2Started){
+        context.font = '100px serif';
+        context.fillStyle = "white"
+        context.fillText("You win this round", canvas.width/4, canvas.height/2);
+    } else if(wonRound2){
+        context.font = '100px serif';
+        context.fillStyle = "white"
+        context.fillText("You won the game", canvas.width/4, canvas.height/2);
+    }
+    
 }
 
 function processInput() {
@@ -199,7 +246,7 @@ function render(){
     renderTerrain()
     renderCharacter(myCharacter)
     renderStatus()
-    needsRender = false
+    displayWin()
 }
 
 function renderCharacter(character) {
@@ -236,7 +283,7 @@ function renderStatus(){
     context.fillText("Fuel: " + myCharacter.fuel.toFixed(2), canvas.width-200, 50)
 
     //display speed
-    if(myCharacter.vel.y > 3){
+    if(myCharacter.vel.y > 3.5){
         context.fillStyle = "white"
     } else {
         context.fillStyle = "green"
@@ -278,12 +325,10 @@ function moveCharacter(key, type) {
         if (controls.rotateRight.isPressed ||controls.rotateRight.equals(key)) {
             controls.rotateRight.isPressed = true
             controls.rotateRight.timeDown = performance.now()
-            myCharacter.angle += 3 * Math.PI/180
         }
         if (controls.rotateLeft.isPressed ||controls.rotateLeft.equals(key)) {
             controls.rotateLeft.isPressed = true
             controls.rotateLeft.timeDown = performance.now()
-            myCharacter.angle -= 3 * Math.PI/180
         }
     }
 }
@@ -295,7 +340,7 @@ function detectCollision(){
             x: myCharacter.location.x,
             y: myCharacter.location.y
         },
-        radius: 40
+        radius: 35
     }
     context.beginPath();
     context.strokeStyle = 'rgb(255, 255, 255)';
@@ -354,8 +399,13 @@ function detectCollision(){
         }
     } else {
         if(lineCircleIntersection(safeZones[i].start, safeZones[i].end, ship)){
-            status = "safe"
-            myCharacter.location = {x:50, y:50}
+            var displayAng = myCharacter.angle*180/Math.PI
+            if(myCharacter.vel.y <= 3.5 && ((displayAng < 10 && displayAng >= 0) || (displayAng > 350 && displayAng <= 360))){
+                status = "safe"
+            } else {
+                status = "crashed"
+                myCharacter.location.y = safeZones[i].start.y-200;
+            }
         }
     }
     return status;
@@ -398,7 +448,9 @@ function lineCircleIntersection(pt1, pt2, circle) {
     return false;
 }
 
-function generateTerrain(){
+function generateTerrain(numOfZones){
+    safeZones = [];
+    allPoints = [];
     //divide line based on length of line
     let begin = {x:0, y:canvas.height/2};
     let end = {x:canvas.width , y:canvas.height/2} 
@@ -407,14 +459,21 @@ function generateTerrain(){
     context.moveTo(begin.x, begin.y);
 
     //generate 2 safe zones then sort them based on x value
-    generateSafeZone();
-    generateSafeZone();
+    for(var i = 0; i < numOfZones; i++){
+        generateSafeZone();
+    }
+
     safeZones.sort(function(a,b){return a.start.x - b.start.x;})
 
     //generate the terrain between safe zones
-    makeLine(begin, safeZones[0].start);
-    makeLine(safeZones[0].end, safeZones[1].start);
-    makeLine(safeZones[1].end, end);    
+    if(numOfZones == 1){
+        makeLine(begin, safeZones[0].start);
+        makeLine(safeZones[0].end, end);  
+    } else {
+        makeLine(begin, safeZones[0].start);
+        makeLine(safeZones[0].end, safeZones[1].start);
+        makeLine(safeZones[1].end, end);  
+    }
 }
 
 function generateSafeZone(){
