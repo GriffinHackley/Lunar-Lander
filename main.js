@@ -91,7 +91,7 @@ function gameLoop() {
 function getMovement(elapsedTime){
     elapsed = elapsedTime/30
     let thrust = .05
-    var moonGrav = .02
+    var moonGrav = .015
     var maxVel = 7
     var maxAccel = 2
 
@@ -158,8 +158,6 @@ function getMovement(elapsedTime){
     if(myCharacter.location.x > canvas.width || myCharacter.location.x < 0){
         myCharacter.location.x = 0
     }    
-
-    console.log(myCharacter.accel.y)
 }
 
 function getShipStatus(elapsedTime){
@@ -174,6 +172,12 @@ function update(current){
     lastUpdate = current
     getMovement(elapsed)
     getShipStatus(elapsed)
+    var status = detectCollision();
+    if(status == "crashed"){
+        console.log("End Game")
+    } else if(status == "safe"){
+        console.log("You won")
+    }
 }
 
 function processInput() {
@@ -282,6 +286,116 @@ function moveCharacter(key, type) {
             myCharacter.angle -= 3 * Math.PI/180
         }
     }
+}
+
+function detectCollision(){
+    var status;
+    ship = {
+        center: {
+            x: myCharacter.location.x,
+            y: myCharacter.location.y
+        },
+        radius: 40
+    }
+    context.beginPath();
+    context.strokeStyle = 'rgb(255, 255, 255)';
+    context.arc(ship.center.x, ship.center.y, ship.radius, 0, 2 * Math.PI);
+    context.stroke();
+    context.closePath();
+
+
+    //determine what part of the terrain the ship is above
+    var closest;
+    var section;
+    var zone;
+    var isSafe = false;
+    for(var i = 0; i < safeZones.length; i++){
+        if(myCharacter.location.x > safeZones[safeZones.length-1].end.x){
+            section  = safeZones.length
+            closest = getClosestX(section)
+            break;
+        }
+        if(myCharacter.location.x < safeZones[i].end.x && myCharacter.location.x > safeZones[i].start.x){
+            isSafe = true;
+            zone = i;
+            break;
+        }
+        if(myCharacter.location.x < safeZones[i].start.x){
+            closest = getClosestX(i);
+            section = i;
+            break;
+        }
+    }
+
+    if(!isSafe){
+        //determine which side of the point the ship is on
+        if(!(closest+1 >= allPoints[section].length) && lineCircleIntersection(allPoints[section][closest], allPoints[section][closest+1], ship)){
+            status = "crashed"
+            myCharacter.location.y = allPoints[section][closest].y-200;
+        } 
+        if(!(closest-1 < 0) && lineCircleIntersection(allPoints[section][closest], allPoints[section][closest-1], ship)){
+            status = "crashed"
+            myCharacter.location.y = allPoints[section][closest].y-200;
+        }
+        var lowest;
+        if(!(closest+1 >= allPoints[section].length) && allPoints[section][closest].y < allPoints[section][closest+1].y){
+            lowest = allPoints[section][closest+1]
+        } else {
+            lowest = allPoints[section][closest]
+        }
+
+        if(!(closest-1 < 0) &&lowest.y < allPoints[section][closest-1].y){
+            lowest = allPoints[section][closest-1]
+        }
+
+        if(myCharacter.location.y > lowest.y){
+            status = "crashed"
+            myCharacter.location.y = allPoints[section][closest].y-200;
+        }
+    } else {
+        if(lineCircleIntersection(safeZones[i].start, safeZones[i].end, ship)){
+            status = "safe"
+            myCharacter.location = {x:50, y:50}
+        }
+    }
+    return status;
+}
+
+function getClosestX(section){
+    //get closest x value to the ship
+    var closest = 0;
+
+    //loop through all points in this section
+    for(var i = 0; i < allPoints[section].length; i++){
+        //if current point is closer than last point, update
+        var checking = Math.abs(myCharacter.location.x-allPoints[section][i].x)
+        var current  = Math.abs(myCharacter.location.x-allPoints[section][closest].x)
+        if(checking <= current){
+            closest = i;
+        }
+    }
+    return closest
+}
+
+function lineCircleIntersection(pt1, pt2, circle) {
+    let v1 = { x: pt2.x - pt1.x, y: pt2.y - pt1.y };
+    let v2 = { x: pt1.x - circle.center.x, y: pt1.y - circle.center.y };
+    let b = -2 * (v1.x * v2.x + v1.y * v2.y);
+    let c =  2 * (v1.x * v1.x + v1.y * v1.y);
+    let d = Math.sqrt(b * b - 2 * c * (v2.x * v2.x + v2.y * v2.y - circle.radius * circle.radius));
+    if (isNaN(d)) { // no intercept
+        return false;
+    }
+    // These represent the unit distance of point one and two on the line
+    let u1 = (b - d) / c;  
+    let u2 = (b + d) / c;
+    if (u1 <= 1 && u1 >= 0) {  // If point on the line segment
+        return true;
+    }
+    if (u2 <= 1 && u2 >= 0) {  // If point on the line segment
+        return true;
+    }
+    return false;
 }
 
 function generateTerrain(){
