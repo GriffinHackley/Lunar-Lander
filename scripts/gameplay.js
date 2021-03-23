@@ -11,6 +11,7 @@ MyGame.screens['game-play'] = (function(game, objects, renderer, graphics, input
     let allPoints = [];
     let points = [];
     let safeZones = [];
+    let scores = [];
     var lastUpdate = 0;
     var maxVel = 7;
     var maxAccel = 1;
@@ -22,6 +23,8 @@ MyGame.screens['game-play'] = (function(game, objects, renderer, graphics, input
     var round2Started = false;
     var round2Ended = false;
     var landingTime = 0;
+    var startTime;
+    var totalTime = 0;
 
     class Key{
         constructor(defaultKey){
@@ -44,7 +47,8 @@ MyGame.screens['game-play'] = (function(game, objects, renderer, graphics, input
         return{
             thrust:new Key("ArrowUp"),
             rotateLeft:new Key("ArrowLeft"),
-            rotateRight: new Key("ArrowRight")
+            rotateRight: new Key("ArrowRight"),
+            escape: new Key("Escape")
         }
     }();
 
@@ -84,6 +88,10 @@ MyGame.screens['game-play'] = (function(game, objects, renderer, graphics, input
         canvas = document.getElementById('id-canvas');
         context = canvas.getContext('2d');
         scaleCanvas();
+        scores.push(100)
+        scores.push(99)
+        scores.push(101)
+        scores.push(300)
     
         generateTerrain(2);
     
@@ -95,6 +103,19 @@ MyGame.screens['game-play'] = (function(game, objects, renderer, graphics, input
         });
     
         requestAnimationFrame(gameLoop);
+    }
+
+    function mapThrust(key){
+        controls.thrust.currentKey = key;
+    }
+    function mapLeft(key){
+        controls.rotateLeft.currentKey = key;
+    }
+    function mapRight(key){
+        controls.rotateRight.currentKey = key;
+    }
+    function mapEscape(key){
+        controls.escape.currentKey = key;
     }
     
     function gameLoop() {
@@ -223,6 +244,10 @@ MyGame.screens['game-play'] = (function(game, objects, renderer, graphics, input
                 round2Ended = true;
             } else {
                 wonRound2 = true;
+                if(totalTime == 0){
+                    totalTime = (performance.now()-startTime)/1000
+                    scores.push(totalTime)
+                }
             }
         }
     }
@@ -596,13 +621,21 @@ MyGame.screens['game-play'] = (function(game, objects, renderer, graphics, input
 
     function run() {
         lastTimeStamp = performance.now();
+        startTime = performance.now()
         cancelNextRequest = false;
         requestAnimationFrame(gameLoop);
     }
 
     return {
         initialize : initialize,
-        run : run
+        run : run,
+        scores: scores,
+        map:{
+            thrust: mapThrust,
+            right: mapRight,
+            left: mapLeft,
+            escape: mapEscape,
+        }
     };
 
 }(MyGame.game, MyGame.objects, MyGame.render, MyGame.graphics, MyGame.input));

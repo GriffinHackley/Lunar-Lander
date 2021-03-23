@@ -8,8 +8,19 @@ MyGame.screens['high-scores'] = (function(game) {
     }
     
     function run() {
-        //
-        // I know this is empty, there isn't anything to do.
+        //get and sort scores
+        var scores = MyGame.screens["game-play"].scores
+        scores.sort(function(a,b){return a - b;})
+        console.log(scores)
+
+        //print scores to the screen
+        var string
+        for(var i = 0; i < scores.length; i++){
+            string = document.createTextNode(scores[i])
+            var newheader = document.createElement("li")
+            newheader.appendChild(string)
+            document.getElementById("scores").appendChild(newheader)
+        }
     }
     
     return {
