@@ -12,7 +12,10 @@ var canRotate = true;
 var hasWon = false;
 var wonRound1 = false;
 var wonRound2 = false;
+var round1Ended = false;
 var round2Started = false;
+var round2Ended = false;
+var landingTime = 0;
 
 class Key{
     constructor(defaultKey){
@@ -184,7 +187,6 @@ function update(current){
     if(status == "crashed"){
         console.log("End Game")
     } else if(status == "safe"){
-        console.log("You won")
         displayWin()
         transition()
     }
@@ -196,26 +198,30 @@ function transition(){
     maxVel = 0;
     canRotate = false
     if(!wonRound1){
-        setTimeout(function(){
+        if(performance.now() - landingTime > 3000){
             generateTerrain(1)
             myCharacter.angle = 0;
             maxAccel = 1;
             maxVel = 7;
             canRotate = true;
             myCharacter.location = {x:50,y:50}
+            wonRound1 = true;
             round2Started = true;
-        },3000);
-        wonRound1 = true;
-    } else if(!wonRound2 && round2Started){
-        setTimeout(function(){
-            console.log("won 2nd round")
-        },3000);
-        wonRound2 = true;
+        } else {
+            round1Ended = true;
+        }
+        
+    } else if(!round2Ended && round2Started){
+        if(performance.now() - landingTime > 3000){
+            round2Ended = true;
+        } else {
+            wonRound2 = true;
+        }
     }
 }
 
 function displayWin(){
-    if(wonRound1 && !round2Started){
+    if(round1Ended && !round2Started){
         context.font = '100px serif';
         context.fillStyle = "white"
         context.fillText("You win this round", canvas.width/4, canvas.height/2);
@@ -399,12 +405,19 @@ function detectCollision(){
         }
     } else {
         if(lineCircleIntersection(safeZones[i].start, safeZones[i].end, ship)){
-            var displayAng = myCharacter.angle*180/Math.PI
-            if(myCharacter.vel.y <= 3.5 && ((displayAng < 10 && displayAng >= 0) || (displayAng > 350 && displayAng <= 360))){
-                status = "safe"
-            } else {
-                status = "crashed"
-                myCharacter.location.y = safeZones[i].start.y-200;
+            // var displayAng = myCharacter.angle*180/Math.PI
+            // if(myCharacter.vel.y <= 3.5 && ((displayAng < 10 && displayAng >= 0) || (displayAng > 350 && displayAng <= 360))){
+            //     status = "safe"
+            //     if(landingTime == 0){
+            //         landingTime = performance.now()
+            //     }
+            // } else {
+            //     status = "crashed"
+            //     myCharacter.location.y = safeZones[i].start.y-200;
+            // }
+            status = "safe"
+            if(landingTime == 0 || (round2Started && !round2Ended)){
+                landingTime = performance.now()
             }
         }
     }
