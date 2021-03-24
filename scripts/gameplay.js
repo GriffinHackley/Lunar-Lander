@@ -59,6 +59,27 @@ MyGame.screens['game-play'] = (function(game, objects, renderer, graphics, input
     };
     imgBackground.src = 'assets/background.jpg';
 
+    let thrustSound = new Audio();
+    thrustSound.src = "assets/thruster.mp3"
+
+    let crashSound = new Audio();
+    crashSound.addEventListener("ended", function(){
+        cancelNextRequest = true;
+        MyGame.game.showScreen("main-menu")
+    })
+    crashSound.addEventListener("play", function(){
+        maxAccel = 0;
+        maxVel = 0;
+        canRotate = false
+        myCharacter.isCrashed = true;
+        render();
+        myCharacter.location.y = myCharacter.location.y-100
+    })
+    crashSound.src = "assets/explosion.mp3"
+
+    let winSound = new Audio();
+    winSound.src = "assets/win.mp3"
+
     let myCharacter = function(landerSource, flamesSource, location) {
         let lander = new Image();
         let flames = new Image();
@@ -79,7 +100,8 @@ MyGame.screens['game-play'] = (function(game, objects, renderer, graphics, input
             accel: {x:0, y:0},
             vel: {x:0, y:0},
             angle: 0,
-            fuel: 200
+            fuel: 200,
+            isCrashed: false
         };
     }('assets/character.png', 'assets/flames.png',{x:50, y:50});
 
@@ -88,10 +110,8 @@ MyGame.screens['game-play'] = (function(game, objects, renderer, graphics, input
         canvas = document.getElementById('id-canvas');
         context = canvas.getContext('2d');
         scaleCanvas();
-        scores.push(100)
-        scores.push(99)
-        scores.push(101)
-        scores.push(300)
+
+        cancelNextRequest = false;
     
         generateTerrain(2);
     
@@ -103,6 +123,26 @@ MyGame.screens['game-play'] = (function(game, objects, renderer, graphics, input
         });
     
         requestAnimationFrame(gameLoop);
+    }
+
+    function resetGame(){
+        myCharacter.location = {x:50,y:50}
+        lastTimeStamp = performance.now();
+
+        myCharacter.isCrashed = false;
+        maxVel = 7;
+        maxAccel = 1;
+        canRotate = true;
+        hasWon = false;
+        wonRound1 = false;
+        wonRound2 = false;
+        round1Ended = false;
+        round2Started = false;
+        round2Ended = false;
+        landingTime = 0;
+        totalTime = 0;
+
+        generateTerrain(2);
     }
 
     function mapThrust(key){
@@ -123,7 +163,9 @@ MyGame.screens['game-play'] = (function(game, objects, renderer, graphics, input
         update(current)
         processInput();
         render();
-        requestAnimationFrame(gameLoop);
+        if (!cancelNextRequest) {
+            requestAnimationFrame(gameLoop);
+        }
     }
     
     function getMovement(elapsedTime){
@@ -213,6 +255,7 @@ MyGame.screens['game-play'] = (function(game, objects, renderer, graphics, input
         getShipStatus(elapsed)
         var status = detectCollision();
         if(status == "crashed"){
+            crashSound.play()
             console.log("End Game")
         } else if(status == "safe"){
             displayWin()
@@ -226,6 +269,7 @@ MyGame.screens['game-play'] = (function(game, objects, renderer, graphics, input
         maxVel = 0;
         canRotate = false
         if(!wonRound1){
+            winSound.play()
             if(performance.now() - landingTime > 3000){
                 generateTerrain(1)
                 myCharacter.angle = 0;
@@ -264,6 +308,10 @@ MyGame.screens['game-play'] = (function(game, objects, renderer, graphics, input
         }
         
     }
+
+    function createExplosion(){
+        console.log("gbfhjidosaghouisadb")
+    }
     
     function processInput() {
         for(input in downBuffer) {
@@ -282,29 +330,40 @@ MyGame.screens['game-play'] = (function(game, objects, renderer, graphics, input
             context.drawImage(imgBackground,0,0, canvas.width, canvas.height);
         }
         renderTerrain()
-        renderCharacter(myCharacter)
+        if(myCharacter.isCrashed){
+            createExplosion()
+        } else {
+            renderCharacter(myCharacter)
+        }
         renderStatus()
         displayWin()
     }
     
     function renderCharacter(character) {
-        let landerSize = .1*character.lander.width
-        let flamesSize = .03*character.flames.width
-        if (character.lander.isReady && character.flames.isReady) {
-            context.save()
-            context.translate(character.location.x, character.location.y)
-    
-            //rotate for lander
-            context.rotate(character.angle)
-            context.drawImage(character.lander,landerSize/-2,landerSize/-2,landerSize,landerSize);
-    
-            if(controls.thrust.isPressed && myCharacter.fuel > 0){
-                //rotate for flames
-                context.rotate((Math.PI/2))
-                context.translate(53,-3)
-                context.drawImage(character.flames,flamesSize/-2,flamesSize/-2,flamesSize,flamesSize);
+        if(!myCharacter.isCrashed){
+            let landerSize = .1*character.lander.width
+            let flamesSize = .03*character.flames.width
+            if (character.lander.isReady && character.flames.isReady) {
+                context.save()
+                context.translate(character.location.x, character.location.y)
+            
+                //rotate for lander
+                context.rotate(character.angle)
+                context.drawImage(character.lander,landerSize/-2,landerSize/-2,landerSize,landerSize);
+            
+                if(controls.thrust.isPressed && myCharacter.fuel > 0){
+                    //rotate for flames
+                    context.rotate((Math.PI/2))
+                    context.translate(53,-3)
+                    context.drawImage(character.flames,flamesSize/-2,flamesSize/-2,flamesSize,flamesSize);
+                    thrustSound.play()
+                } else {
+                    if(!thrustSound.paused){
+                        thrustSound.pause()
+                    }
+                }
+                context.restore()
             }
-            context.restore()
         }
     }
     
@@ -342,6 +401,12 @@ MyGame.screens['game-play'] = (function(game, objects, renderer, graphics, input
     }
     
     function moveCharacter(key, type) {
+        if(controls.escape.equals(key)){
+            console.log(MyGame.game)
+            cancelNextRequest = true;
+            resetGame()
+            MyGame.game.showScreen("main-menu")
+        }
         if(type == "up"){
             if (controls.thrust.equals(key)) {
                 controls.thrust.isPressed = false
@@ -414,11 +479,11 @@ MyGame.screens['game-play'] = (function(game, objects, renderer, graphics, input
             //determine which side of the point the ship is on
             if(!(closest+1 >= allPoints[section].length) && lineCircleIntersection(allPoints[section][closest], allPoints[section][closest+1], ship)){
                 status = "crashed"
-                myCharacter.location.y = allPoints[section][closest].y-200;
+                // myCharacter.location.y = allPoints[section][closest].y-200;
             } 
             if(!(closest-1 < 0) && lineCircleIntersection(allPoints[section][closest], allPoints[section][closest-1], ship)){
                 status = "crashed"
-                myCharacter.location.y = allPoints[section][closest].y-200;
+                // myCharacter.location.y = allPoints[section][closest].y-200;
             }
             var lowest;
             if(!(closest+1 >= allPoints[section].length) && allPoints[section][closest].y < allPoints[section][closest+1].y){
@@ -433,7 +498,7 @@ MyGame.screens['game-play'] = (function(game, objects, renderer, graphics, input
     
             if(myCharacter.location.y > lowest.y){
                 status = "crashed"
-                myCharacter.location.y = allPoints[section][closest].y-200;
+                // myCharacter.location.y = allPoints[section][closest].y-200;
             }
         } else {
             if(lineCircleIntersection(safeZones[i].start, safeZones[i].end, ship)){
@@ -505,7 +570,7 @@ MyGame.screens['game-play'] = (function(game, objects, renderer, graphics, input
     
         //generate 2 safe zones then sort them based on x value
         for(var i = 0; i < numOfZones; i++){
-            generateSafeZone();
+            generateSafeZone(numOfZones);
         }
     
         safeZones.sort(function(a,b){return a.start.x - b.start.x;})
@@ -521,8 +586,13 @@ MyGame.screens['game-play'] = (function(game, objects, renderer, graphics, input
         }
     }
     
-    function generateSafeZone(){
-        var length = 150;
+    function generateSafeZone(numOfZones){
+        if(numOfZones == 1){
+            var length = 100;
+        } else {
+            var length = 150;
+        }
+        
         //make sure the x value cant be within 15% of the edges of the screen
         let xVal = (Math.random()*canvas.width*.7)+(.15*canvas.width) 
         let yVal = Math.random()*canvas.height*.7+(.1*canvas.height)
@@ -623,6 +693,10 @@ MyGame.screens['game-play'] = (function(game, objects, renderer, graphics, input
         lastTimeStamp = performance.now();
         startTime = performance.now()
         cancelNextRequest = false;
+
+        // console.log("called")
+        resetGame();
+
         requestAnimationFrame(gameLoop);
     }
 

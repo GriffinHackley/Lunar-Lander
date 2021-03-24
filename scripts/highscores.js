@@ -15,8 +15,9 @@ MyGame.screens['high-scores'] = (function(game) {
 
         //print scores to the screen
         var string
+        document.getElementById("scores").innerHTML = ""
         for(var i = 0; i < scores.length; i++){
-            string = document.createTextNode(scores[i])
+            string = document.createTextNode(scores[i].toFixed(2))
             var newheader = document.createElement("li")
             newheader.appendChild(string)
             document.getElementById("scores").appendChild(newheader)
